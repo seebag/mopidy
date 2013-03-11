@@ -30,6 +30,7 @@ class Audio(pykka.ThreadingActor):
     **Settings:**
 
     - :attr:`mopidy.settings.OUTPUT`
+    - :attr:`mopidy.settings.OUTPUTS`
     - :attr:`mopidy.settings.MIXER`
     - :attr:`mopidy.settings.MIXER_TRACK`
     """
@@ -56,6 +57,9 @@ class Audio(pykka.ThreadingActor):
         self._appsrc_need_data_callback = None
         self._appsrc_enough_data_callback = None
         self._appsrc_seek_data_callback = None
+
+        self._current_output = None
+        self._restore_position = None
 
     def on_start(self):
         try:
@@ -152,14 +156,43 @@ class Audio(pykka.ThreadingActor):
 
     def _setup_output(self):
         try:
-            output = gst.parse_bin_from_description(
-                settings.OUTPUT, ghost_unconnected_pads=True)
-            self._playbin.set_property('audio-sink', output)
-            logger.info('Audio output set to "%s"', settings.OUTPUT)
+            if settings.OUTPUTS != '':
+                self.set_output(settings.OUTPUTS.keys()[0])
+            else:
+                self.set_output('Default')
         except gobject.GError as ex:
             logger.error(
                 'Failed to create audio output "%s": %s', settings.OUTPUT, ex)
             process.exit_process()
+
+    def list_output(self):
+        output_name = ()
+        if settings.OUTPUTS != '':
+            for output in settings.OUTPUTS:
+                output_name += (output,)
+        else:
+            output_name = ('Default',)
+        return output_name
+
+    def get_current_output(self):
+        return self._current_output
+
+    def set_output(self, output_name):
+        if output_name == 'Default':
+            output_stream = settings.OUTPUT
+        else:
+            output_stream = settings.OUTPUTS[output_name]
+        output = gst.parse_bin_from_description(
+            output_stream, ghost_unconnected_pads=True)
+        old_position = self.get_position()
+        a, old_state, p = self._playbin.get_state()
+        self.stop_playback()
+        self._playbin.set_property('audio-sink', output)
+        logger.info('Audio output set to "%s" -> "%s"', output_name, output_stream)
+        if old_state == gst.STATE_PLAYING:
+            self._restore_position = old_position
+            self.pause_playback()
+        self._current_output = output_name
 
     def _setup_mixer(self):
         if not settings.MIXER:
@@ -256,6 +289,12 @@ class Audio(pykka.ThreadingActor):
             logger.warning('%s %s', error, debug)
 
     def _on_playbin_state_changed(self, old_state, new_state, pending_state):
+        if self._restore_position != None and new_state == gst.STATE_PAUSED:
+            self.set_position(self._restore_position)
+            print "position restored " + str(self._restore_position)
+            self._restore_position = None
+            self.start_playback()
+            return # ignore this pause
         if new_state == gst.STATE_READY and pending_state == gst.STATE_NULL:
             # XXX: We're not called on the last state change when going down to
             # NULL, so we rewrite the second to last call to get the expected
