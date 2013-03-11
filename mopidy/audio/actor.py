@@ -291,6 +291,10 @@ class Audio(pykka.ThreadingActor):
     def _on_playbin_state_changed(self, old_state, new_state, pending_state):
         if self._restore_position != None and new_state == gst.STATE_PAUSED:
             self.set_position(self._restore_position)
+<<<<<<< HEAD
+=======
+            print "position restored " + str(self._restore_position)
+>>>>>>> 92d684a602db42628516ea63d54459d4792dc433
             self._restore_position = None
             self.start_playback()
             return # ignore this pause
