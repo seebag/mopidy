@@ -234,6 +234,10 @@ MPD_SERVER_MAX_CONNECTIONS = 20
 #:     OUTPUT = u'autoaudiosink'
 OUTPUT = 'autoaudiosink'
 
+
+#:  OUTPUTS = {u'Kitchen': u'pulseaudio device=""', u'Bedroom': u'pulseaudio device=""'}
+OUTPUTS = ''
+
 #: Path to the Spotify cache.
 #:
 #: Used by :mod:`mopidy.backends.spotify`.

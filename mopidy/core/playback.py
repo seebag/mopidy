@@ -294,6 +294,18 @@ class PlaybackController(object):
     volume = property(get_volume, set_volume)
     """Volume as int in range [0..100] or :class:`None`"""
 
+    def set_output(self, output_name):
+        if self.audio:
+            self.audio.set_output(output_name)
+
+    def list_output(self):
+        if self.audio:
+            return self.audio.list_output().get()
+
+    def get_current_output(self):
+        if self.audio:
+            return self.audio.get_current_output().get()
+
     ### Methods
 
     def change_track(self, tl_track, on_error_step=1):
